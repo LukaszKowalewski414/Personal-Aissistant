@@ -1,0 +1,6 @@
+streamlit
+audiorecorder
+faster-whisper
+openai>=1.50.0
+sqlalchemy
+pydub
