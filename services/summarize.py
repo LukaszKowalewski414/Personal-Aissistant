@@ -16,7 +16,6 @@ def _get_api_key() -> str:
     os.environ["OPENAI_API_KEY"] = key   # <- ustaw w ENV dla SDK
     return key
 
-# ustaw ENV i twórz klienta bez przekazywania parametru (SDK samo czyta z ENV)
 _get_api_key()
 client = OpenAI()
 
