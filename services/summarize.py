@@ -10,10 +10,14 @@ load_dotenv()  # zostaje dla lokalnego dev
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
 def _get_api_key() -> str:
-    key = (os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", "")).strip()
+    key = (
+        st.session_state.get("OPENAI_API_KEY_UI") or
+        st.secrets.get("OPENAI_API_KEY", "") or
+        os.getenv("OPENAI_API_KEY", "")
+    ).strip()
     if not key.startswith("sk-"):
-        raise RuntimeError("Brak klucza OpenAI. Dodaj go w Streamlit Secrets (OPENAI_API_KEY).")
-    os.environ["OPENAI_API_KEY"] = key   # <- ustaw w ENV dla SDK
+        raise RuntimeError("Brak klucza OpenAI. Wpisz go w sidebarze lub dodaj w Secrets.")
+    os.environ["OPENAI_API_KEY"] = key   # <- wymuś dla SDK
     return key
 
 _get_api_key()
