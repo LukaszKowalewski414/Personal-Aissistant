@@ -5,6 +5,5 @@ openai>=1.50.0
 sqlalchemy
 pydub
 python-dotenv
-pyaudioop
 
 
