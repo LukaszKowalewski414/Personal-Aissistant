@@ -24,9 +24,9 @@ st.title("Personal AIssistant")
 # PRZYCISK DO POBRANIA OPENAI_API_KEY
 # -------------------------------------------------
 with st.sidebar:
-    api_key = st.text_input("OPENAI_API_KEY", type="password", help="W Cloud ustaw w Secrets – tu tylko lokalnie.")
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
+    ui_key = st.text_input("OPENAI_API_KEY", type="password", placeholder="sk-...")
+    if ui_key:
+        st.session_state["OPENAI_API_KEY_UI"] = ui_key.strip()
 # -------------------------------------------------
 # POPRAWKI WYGLĄDU
 # -------------------------------------------------
