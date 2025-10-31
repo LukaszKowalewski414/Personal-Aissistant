@@ -21,7 +21,7 @@ _SYSTEM = (
 )
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    _get_api_key()
+    api_key = _get_api_key()
     try:
         client = OpenAI(api_key=api_key)
     except TypeError:
