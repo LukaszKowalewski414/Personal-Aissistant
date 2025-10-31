@@ -9,13 +9,10 @@ load_dotenv()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
 def _get_api_key() -> str:
-    key = (
-        st.session_state.get("OPENAI_API_KEY_UI") or
-        st.secrets.get("OPENAI_API_KEY", "") or
-        os.getenv("OPENAI_API_KEY", "")
-    ).strip()
+    key = (st.session_state.get("OPENAI_API_KEY_UI") or "").strip()
     if not key.startswith("sk-"):
-        raise RuntimeError("Brak klucza OpenAI. Wpisz go w sidebarze lub dodaj w Secrets.")
+        # komunikat pod ten właśnie przypadek
+        raise RuntimeError("Wprowadź klucz OpenAI, aby przeprowadzić analizę rozmowy.")
     return key
 
 _SYSTEM = (
@@ -26,8 +23,6 @@ _SYSTEM = (
 
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    # <-- LAZY INIT TUTAJ
-    api_key = _get_api_key()
     client = OpenAI(api_key=api_key)
 
     prompt = f"""Przeanalizuj rozmowę i zwróć JSON o polach:
