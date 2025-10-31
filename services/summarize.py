@@ -7,15 +7,12 @@ from dotenv import load_dotenv
 load_dotenv()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # zostaje jak było
 
-def _get_api_key() -> str:
+def _client() -> OpenAI:
     key = (st.session_state.get("OPENAI_API_KEY_UI") or "").strip()
     if not key.startswith("sk-"):
-        raise RuntimeError("Wprowadź klucz OpenAI, aby przeprowadzić analizę rozmowy.")
-    return key
-
-def _client() -> OpenAI:
-    # zero fallbacków: zawsze twórz klienta z jawnie podanym kluczem
-    return OpenAI(api_key=_get_api_key())
+        raise RuntimeError("Wprowadź klucz OpenAI w sidebarze.")
+    os.environ["OPENAI_API_KEY"] = key
+    return OpenAI()
 
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
