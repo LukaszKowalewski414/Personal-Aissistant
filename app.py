@@ -249,7 +249,7 @@ with tab_sum:
 
     if not HAS_OPENAI_KEY:
         st.info("Wprowadź klucz OpenAI w lewym panelu, aby zrobić analizę rozmowy.")
-    btn_summary = st.button("Zrób streszczenie", disabled=not HAS_OPENAI_KEY))
+    btn_summary = st.button("Zrób streszczenie", disabled=not HAS_OPENAI_KEY)
 
     if btn_summary:
         p = st.session_state.get("pending")
