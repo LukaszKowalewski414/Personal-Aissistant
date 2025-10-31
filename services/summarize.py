@@ -1,19 +1,31 @@
-import os, json
+# --- services/summarize.py (kompatybilne z openai 0.x i 1.x) ---
+import os, json, re
 import streamlit as st
 from typing import Dict, Any
-from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
-def _get_api_key() -> str:
+# Próba importu nowego SDK (1.x)
+try:
+    from openai import OpenAI  # openai>=1.x
+except Exception:
+    OpenAI = None
+import openai as openai_legacy  # działa też dla 1.x, fallback dla 0.x
+
+def _get_ui_key() -> str:
     key = (st.session_state.get("OPENAI_API_KEY_UI") or "").strip()
     if not key.startswith("sk-"):
-        # komunikat pod ten właśnie przypadek
         raise RuntimeError("Wprowadź klucz OpenAI, aby przeprowadzić analizę rozmowy.")
     return key
+
+def _strip_fence(s: str) -> str:
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1]
+        if s.endswith("```"):
+            s = s[:-3]
+    return s
 
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
@@ -21,11 +33,14 @@ _SYSTEM = (
     "Pisz po polsku. Odpowiedzi mają być rzeczowe, bez lania wody."
 )
 
-
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    client = OpenAI(api_key=api_key)
+    api_key = _get_ui_key()
 
-    prompt = f"""Przeanalizuj rozmowę i zwróć JSON o polach:
+    # --- nowe SDK (1.x) ---
+    if OpenAI is not None:
+        client = OpenAI(api_key=api_key)
+        prompt = f"""
+Przeanalizuj rozmowę i zwróć JSON o polach:
 
 topic: krótki temat rozmowy (max 12 słów),
 participants: lista imion/ról (np. ["Sprzedawca","Klient"]),
@@ -42,50 +57,56 @@ Zwróć **wyłącznie** poprawny JSON, bez komentarzy i bez markdownu.
 
 TRANSKRYPT:
 \"\"\"{transcript.strip()[:12000]}\"\"\""""
-    resp = client.chat.completions.create(
-        model=MODEL,
-        temperature=0.2,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": _SYSTEM},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    txt = resp.choices[0].message.content.strip()
+        resp = client.chat.completions.create(
+            model=MODEL,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        txt = resp.choices[0].message.content.strip()
 
-    # awaryjne zdjęcie code-fence, gdyby model jednak je dodał
-    def _strip_fence(s: str) -> str:
-        if s.startswith("```"):
-            # usuń trzy backticki + ewentualne 'json' w pierwszej linii
-            s = s.split("\n", 1)[-1]
-            if s.endswith("```"):
-                s = s[:-3]
-        return s
+    # --- stare SDK (0.x) ---
+    else:
+        openai_legacy.api_key = api_key
+        prompt = f"""
+Zwróć **TYLKO** poprawny JSON (bez markdownu) o polach jak poniżej.
 
+topic, participants, summary (3–6 zdań), sales_score (0–100), sales_comment,
+improve (lista), reaction, next_steps (lista obiektów z polami task/owner/due),
+ideas (lista), tags (5–10, małe litery, bez #).
+
+TRANSKRYPT:
+\"\"\"{transcript.strip()[:12000]}\"\"\""""
+        resp = openai_legacy.ChatCompletion.create(
+            model=MODEL,
+            temperature=0.2,
+            messages=[
+                {"role": "system", "content": _SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        txt = resp["choices"][0]["message"]["content"].strip()
+
+    # --- parsing JSON ---
     clean = _strip_fence(txt)
     if not clean.strip().startswith("{"):
-        import re
         m = re.search(r"\{.*\}", clean, flags=re.S)
         clean = m.group(0) if m else clean
 
     try:
         data = json.loads(clean)
     except Exception:
-        # awaryjny szkielet – pokaż co przyszło w 'summary'
         data = {
-            "topic": "",
-            "participants": [],
-            "summary": clean,
-            "sales_score": 0,
-            "sales_comment": "",
-            "improve": [],
-            "reaction": "",
-            "next_steps": [],
-            "ideas": [],
-            "tags": [],
+            "topic": "", "participants": [], "summary": clean,
+            "sales_score": 0, "sales_comment": "",
+            "improve": [], "reaction": "", "next_steps": [],
+            "ideas": [], "tags": [],
         }
 
-    # --- sanity defaults + lekkie normalizacje (działa w obu ścieżkach) ---
+    # defaults + normalizacje
     data.setdefault("topic", "Rozmowa")
     data.setdefault("participants", [])
     data.setdefault("summary", "")
@@ -96,8 +117,6 @@ TRANSKRYPT:
     data.setdefault("next_steps", [])
     data.setdefault("ideas", [])
     data.setdefault("tags", [])
-
-    # normalizacja typów
     if isinstance(data["participants"], str):
         data["participants"] = [p.strip() for p in data["participants"].split(",") if p.strip()]
     if isinstance(data["improve"], str):
@@ -112,4 +131,3 @@ TRANSKRYPT:
         data["sales_score"] = 0
 
     return data
-
