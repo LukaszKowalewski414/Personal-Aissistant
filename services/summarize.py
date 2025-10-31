@@ -1,31 +1,22 @@
-# --- services/summarize.py (kompatybilne z openai 0.x i 1.x) ---
 import os, json, re
 import streamlit as st
 from typing import Dict, Any
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
-# Próba importu nowego SDK (1.x)
-try:
-    from openai import OpenAI  # openai>=1.x
-except Exception:
-    OpenAI = None
-import openai as openai_legacy  # działa też dla 1.x, fallback dla 0.x
-
-def _get_ui_key() -> str:
+def _get_api_key() -> str:
     key = (st.session_state.get("OPENAI_API_KEY_UI") or "").strip()
     if not key.startswith("sk-"):
         raise RuntimeError("Wprowadź klucz OpenAI, aby przeprowadzić analizę rozmowy.")
+    os.environ["OPENAI_API_KEY"] = key  # wymuś dla SDK
     return key
 
-def _strip_fence(s: str) -> str:
-    if s.startswith("```"):
-        s = s.split("\n", 1)[-1]
-        if s.endswith("```"):
-            s = s[:-3]
-    return s
+# natychmiast wymuś klucz (jeśli jest)
+_get_api_key()
+client = OpenAI()
 
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
@@ -34,12 +25,7 @@ _SYSTEM = (
 )
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    api_key = _get_ui_key()
-
-    # --- nowe SDK (1.x) ---
-    if OpenAI is not None:
-        client = OpenAI(api_key=api_key)
-        prompt = f"""
+    prompt = f"""
 Przeanalizuj rozmowę i zwróć JSON o polach:
 
 topic: krótki temat rozmowy (max 12 słów),
@@ -57,56 +43,37 @@ Zwróć **wyłącznie** poprawny JSON, bez komentarzy i bez markdownu.
 
 TRANSKRYPT:
 \"\"\"{transcript.strip()[:12000]}\"\"\""""
-        resp = client.chat.completions.create(
-            model=MODEL,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        txt = resp.choices[0].message.content.strip()
+    resp = client.chat.completions.create(
+        model=MODEL,
+        temperature=0.2,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    txt = resp.choices[0].message.content.strip()
 
-    # --- stare SDK (0.x) ---
-    else:
-        openai_legacy.api_key = api_key
-        prompt = f"""
-Zwróć **TYLKO** poprawny JSON (bez markdownu) o polach jak poniżej.
-
-topic, participants, summary (3–6 zdań), sales_score (0–100), sales_comment,
-improve (lista), reaction, next_steps (lista obiektów z polami task/owner/due),
-ideas (lista), tags (5–10, małe litery, bez #).
-
-TRANSKRYPT:
-\"\"\"{transcript.strip()[:12000]}\"\"\""""
-        resp = openai_legacy.ChatCompletion.create(
-            model=MODEL,
-            temperature=0.2,
-            messages=[
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        txt = resp["choices"][0]["message"]["content"].strip()
-
-    # --- parsing JSON ---
-    clean = _strip_fence(txt)
-    if not clean.strip().startswith("{"):
-        m = re.search(r"\{.*\}", clean, flags=re.S)
-        clean = m.group(0) if m else clean
+    # usuwanie ewentualnych code fence
+    if txt.startswith("```"):
+        txt = txt.split("\n", 1)[-1]
+        if txt.endswith("```"):
+            txt = txt[:-3]
+    if not txt.strip().startswith("{"):
+        m = re.search(r"\{.*\}", txt, flags=re.S)
+        txt = m.group(0) if m else txt
 
     try:
-        data = json.loads(clean)
+        data = json.loads(txt)
     except Exception:
         data = {
-            "topic": "", "participants": [], "summary": clean,
+            "topic": "", "participants": [], "summary": txt,
             "sales_score": 0, "sales_comment": "",
             "improve": [], "reaction": "", "next_steps": [],
             "ideas": [], "tags": [],
         }
 
-    # defaults + normalizacje
+    # domyślne wartości i normalizacje
     data.setdefault("topic", "Rozmowa")
     data.setdefault("participants", [])
     data.setdefault("summary", "")
