@@ -22,7 +22,11 @@ _SYSTEM = (
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
     _get_api_key()
-    client = OpenAI()
+    try:
+        client = OpenAI(api_key=api_key)
+    except TypeError:
+        os.environ["OPENAI_API_KEY"] = api_key
+        client = OpenAI()
     prompt = f"""
 Przeanalizuj rozmowę i zwróć JSON o polach:
 
