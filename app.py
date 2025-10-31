@@ -27,6 +27,8 @@ with st.sidebar:
     ui_key = st.text_input("OPENAI_API_KEY", type="password", placeholder="sk-...")
     if ui_key:
         st.session_state["OPENAI_API_KEY_UI"] = ui_key.strip()
+
+HAS_OPENAI_KEY = bool(st.session_state.get("OPENAI_API_KEY_UI", "").startswith("sk-"))
 # -------------------------------------------------
 # POPRAWKI WYGLĄDU
 # -------------------------------------------------
@@ -244,9 +246,11 @@ with tab_tx:
 # =================================================
 with tab_sum:
     st.caption("Szczegółowa analiza rozmowy sprzedażowej z sugestiami.")
-    btn_summary = st.button("Zrób streszczenie")
 
-    # --- jedyny wariant: transkrypcja w tle (jeśli brak) + analiza ---
+    if not HAS_OPENAI_KEY:
+        st.info("Wprowadź klucz OpenAI w lewym panelu, aby zrobić analizę rozmowy.")
+    btn_summary = st.button("Zrób streszczenie", disabled=not HAS_OPENAI_KEY))
+
     if btn_summary:
         p = st.session_state.get("pending")
         if not p:
