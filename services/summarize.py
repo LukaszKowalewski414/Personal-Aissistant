@@ -1,11 +1,10 @@
-# services/summarize.py
 import os, json
 import streamlit as st
 from typing import Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()  # zostaje dla lokalnego dev
+load_dotenv()
 
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
@@ -17,11 +16,7 @@ def _get_api_key() -> str:
     ).strip()
     if not key.startswith("sk-"):
         raise RuntimeError("Brak klucza OpenAI. Wpisz go w sidebarze lub dodaj w Secrets.")
-    os.environ["OPENAI_API_KEY"] = key   # <- wymuś dla SDK
     return key
-
-_get_api_key()
-client = OpenAI()
 
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
@@ -29,9 +24,13 @@ _SYSTEM = (
     "Pisz po polsku. Odpowiedzi mają być rzeczowe, bez lania wody."
 )
 
+
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    prompt = f"""
-Przeanalizuj rozmowę i zwróć JSON o polach:
+    # <-- LAZY INIT TUTAJ
+    api_key = _get_api_key()
+    client = OpenAI(api_key=api_key)
+
+    prompt = f"""Przeanalizuj rozmowę i zwróć JSON o polach:
 
 topic: krótki temat rozmowy (max 12 słów),
 participants: lista imion/ról (np. ["Sprzedawca","Klient"]),
@@ -47,8 +46,7 @@ tags: lista 5–10 tagów do wyszukiwania (małe litery, bez #, jedno/dwuwyrazow
 Zwróć **wyłącznie** poprawny JSON, bez komentarzy i bez markdownu.
 
 TRANSKRYPT:
-\"\"\"{transcript.strip()[:12000]}\"\"\"
-"""
+\"\"\"{transcript.strip()[:12000]}\"\"\""""
     resp = client.chat.completions.create(
         model=MODEL,
         temperature=0.2,
@@ -58,7 +56,6 @@ TRANSKRYPT:
             {"role": "user", "content": prompt},
         ],
     )
-
     txt = resp.choices[0].message.content.strip()
 
     # awaryjne zdjęcie code-fence, gdyby model jednak je dodał
