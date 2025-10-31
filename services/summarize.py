@@ -14,10 +14,6 @@ def _get_api_key() -> str:
     os.environ["OPENAI_API_KEY"] = key  # wymuś dla SDK
     return key
 
-# natychmiast wymuś klucz (jeśli jest)
-_get_api_key()
-client = OpenAI()
-
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
     "Na podstawie transkryptu rozmowy zwróć krótki, konkretny raport. "
@@ -25,6 +21,8 @@ _SYSTEM = (
 )
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
+    _get_api_key()
+    client = OpenAI()
     prompt = f"""
 Przeanalizuj rozmowę i zwróć JSON o polach:
 
