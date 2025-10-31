@@ -4,6 +4,11 @@ from typing import Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
 
+import openai as _openai_pkg
+import streamlit as st
+st.sidebar.caption(f"openai version: {_openai_pkg.__version__}")
+
+
 load_dotenv()
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # zostaje jak było
 
