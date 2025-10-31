@@ -5,7 +5,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 import openai as _openai_pkg
-import streamlit as st
 st.sidebar.caption(f"openai version: {_openai_pkg.__version__}")
 
 
