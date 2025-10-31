@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 
 import openai as _openai_pkg
 st.sidebar.caption(f"openai version: {_openai_pkg.__version__}")
+import httpx as _httpx
+st.sidebar.caption(f"httpx version: {_httpx.__version__}")
+
 
 
 load_dotenv()
