@@ -5,14 +5,17 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # zostaje jak było
 
 def _get_api_key() -> str:
     key = (st.session_state.get("OPENAI_API_KEY_UI") or "").strip()
     if not key.startswith("sk-"):
         raise RuntimeError("Wprowadź klucz OpenAI, aby przeprowadzić analizę rozmowy.")
-    os.environ["OPENAI_API_KEY"] = key  # wymuś dla SDK
     return key
+
+def _client() -> OpenAI:
+    # zero fallbacków: zawsze twórz klienta z jawnie podanym kluczem
+    return OpenAI(api_key=_get_api_key())
 
 _SYSTEM = (
     "Jesteś asystentem sprzedażowo-analitycznym. "
@@ -21,12 +24,9 @@ _SYSTEM = (
 )
 
 def summarize_meeting(transcript: str) -> Dict[str, Any]:
-    api_key = _get_api_key()
-    try:
-        client = OpenAI(api_key=api_key)
-    except TypeError:
-        os.environ["OPENAI_API_KEY"] = api_key
-        client = OpenAI()
+    if not transcript or not transcript.strip():
+        raise ValueError("Brak transkryptu do analizy.")
+    client = _client()
     prompt = f"""
 Przeanalizuj rozmowę i zwróć JSON o polach:
 
